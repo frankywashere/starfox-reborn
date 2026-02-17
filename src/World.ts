@@ -17,7 +17,7 @@ export interface LevelDef {
   name: string;
   subtitle: string;
   duration: number;
-  environment: 'crystal_depths' | 'neon_city' | 'volcanic_core';
+  environment: 'crystal_depths' | 'neon_city' | 'volcanic_core' | 'emerald_planet';
   waves: LevelWave[];
   hasBoss: boolean;
   fogColor: number;
@@ -231,6 +231,83 @@ const LEVELS: LevelDef[] = [
     ambientIntensity: 0.4,
     sunIntensity: 0.9,
   },
+  // Level 4: Lush alien planet with terrain, atmosphere, and boss
+  {
+    name: 'PLANET VERDANA',
+    subtitle: 'The Emerald Expanse',
+    duration: 75,
+    environment: 'emerald_planet',
+    waves: [
+      { time: 3, enemies: [
+        { type: EnemyType.FIGHTER, x: -5, y: 6, behavior: 'straight' },
+        { type: EnemyType.FIGHTER, x: 0, y: 5, behavior: 'straight' },
+        { type: EnemyType.FIGHTER, x: 5, y: 6, behavior: 'straight' },
+      ]},
+      { time: 8, enemies: [
+        { type: EnemyType.INTERCEPTOR, x: -8, y: 4, behavior: 'sine' },
+        { type: EnemyType.INTERCEPTOR, x: 8, y: 4, behavior: 'sine' },
+        { type: EnemyType.FIGHTER, x: 0, y: 7, behavior: 'chase' },
+      ]},
+      { time: 14, enemies: [
+        { type: EnemyType.BOMBER, x: -4, y: 5 },
+        { type: EnemyType.BOMBER, x: 4, y: 5 },
+        { type: EnemyType.INTERCEPTOR, x: -10, y: 6, behavior: 'sine' },
+        { type: EnemyType.INTERCEPTOR, x: 10, y: 6, behavior: 'sine' },
+      ]},
+      { time: 20, enemies: [
+        { type: EnemyType.TURRET, x: -6, y: 3 },
+        { type: EnemyType.TURRET, x: 6, y: 3 },
+        { type: EnemyType.FIGHTER, x: -3, y: 5, behavior: 'strafe' },
+        { type: EnemyType.FIGHTER, x: 3, y: 5, behavior: 'strafe' },
+        { type: EnemyType.INTERCEPTOR, x: 0, y: 7, behavior: 'chase' },
+      ]},
+      { time: 28, enemies: [
+        { type: EnemyType.FIGHTER, x: -2, y: 4, behavior: 'sine' },
+        { type: EnemyType.FIGHTER, x: 2, y: 6, behavior: 'sine' },
+        { type: EnemyType.FIGHTER, x: -6, y: 5, behavior: 'sine' },
+        { type: EnemyType.FIGHTER, x: 6, y: 5, behavior: 'sine' },
+        { type: EnemyType.BOMBER, x: 0, y: 7 },
+        { type: EnemyType.BOMBER, x: -8, y: 4 },
+        { type: EnemyType.BOMBER, x: 8, y: 4 },
+      ]},
+      { time: 36, enemies: [
+        { type: EnemyType.INTERCEPTOR, x: -5, y: 4, behavior: 'chase' },
+        { type: EnemyType.INTERCEPTOR, x: 5, y: 4, behavior: 'chase' },
+        { type: EnemyType.INTERCEPTOR, x: -8, y: 6, behavior: 'chase' },
+        { type: EnemyType.INTERCEPTOR, x: 8, y: 6, behavior: 'chase' },
+        { type: EnemyType.TURRET, x: 0, y: 3 },
+      ]},
+      { time: 44, enemies: [
+        { type: EnemyType.BOMBER, x: -3, y: 5 },
+        { type: EnemyType.BOMBER, x: 3, y: 5 },
+        { type: EnemyType.BOMBER, x: 0, y: 7 },
+        { type: EnemyType.TURRET, x: -10, y: 2 },
+        { type: EnemyType.TURRET, x: 10, y: 2 },
+        { type: EnemyType.FIGHTER, x: -6, y: 4, behavior: 'strafe' },
+        { type: EnemyType.FIGHTER, x: 6, y: 4, behavior: 'strafe' },
+      ]},
+      { time: 52, enemies: [
+        { type: EnemyType.FIGHTER, x: -4, y: 3, behavior: 'sine' },
+        { type: EnemyType.FIGHTER, x: 4, y: 3, behavior: 'sine' },
+        { type: EnemyType.INTERCEPTOR, x: -8, y: 5, behavior: 'chase' },
+        { type: EnemyType.INTERCEPTOR, x: 8, y: 5, behavior: 'chase' },
+        { type: EnemyType.BOMBER, x: 0, y: 6 },
+        { type: EnemyType.TURRET, x: -5, y: 2 },
+        { type: EnemyType.TURRET, x: 5, y: 2 },
+      ]},
+      // Boss wave
+      { time: 60, enemies: [
+        { type: EnemyType.BOSS, x: 0, y: 5, behavior: 'boss' },
+      ]},
+    ],
+    hasBoss: true,
+    fogColor: 0x88bbaa,
+    fogDensity: 0.0012,
+    skyColor: 0x4488cc,
+    groundColor: 0x2a5522,
+    ambientIntensity: 0.7,
+    sunIntensity: 1.4,
+  },
 ];
 
 // Environment management
@@ -321,6 +398,9 @@ export class World {
       case 'volcanic_core':
         this.setupVolcanicCore();
         break;
+      case 'emerald_planet':
+        this.setupEmeraldPlanet();
+        break;
     }
   }
 
@@ -352,6 +432,15 @@ export class World {
           flatShading: true,
           emissive: 0x1a0a00,
           emissiveIntensity: 0.4,
+        });
+      case 'emerald_planet':
+        return new THREE.MeshStandardMaterial({
+          color: 0x3a7530,
+          metalness: 0.1,
+          roughness: 0.85,
+          flatShading: true,
+          emissive: 0x112208,
+          emissiveIntensity: 0.2,
         });
     }
   }
@@ -590,6 +679,160 @@ export class World {
     });
   }
 
+  private setupEmeraldPlanet(): void {
+    // Atmospheric sky dome with gradient
+    const skyGeo = new THREE.SphereGeometry(250, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        topColor: { value: new THREE.Color(0x2266cc) },
+        bottomColor: { value: new THREE.Color(0x88ccaa) },
+        offset: { value: 10 },
+        exponent: { value: 0.5 },
+      },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPos;
+        void main() {
+          float h = normalize(vWorldPos + offset).y;
+          float t = max(pow(max(h, 0.0), exponent), 0.0);
+          gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+        }
+      `,
+    });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    this.group.add(sky);
+    this.envObjects.push({
+      mesh: sky,
+      speed: 0,
+      rotationSpeed: new THREE.Vector3(0, 0, 0),
+    });
+
+    // Volumetric cloud layers
+    for (let i = 0; i < 15; i++) {
+      const cloudGroup = new THREE.Group();
+      const cloudCount = 3 + Math.floor(Math.random() * 4);
+      const cloudMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.15 + Math.random() * 0.15,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+
+      for (let c = 0; c < cloudCount; c++) {
+        const w = 20 + Math.random() * 40;
+        const h = 5 + Math.random() * 8;
+        const cloudPart = new THREE.Mesh(
+          new THREE.PlaneGeometry(w, h),
+          cloudMat
+        );
+        cloudPart.position.set(
+          (Math.random() - 0.5) * 15,
+          (Math.random() - 0.5) * 3,
+          (Math.random() - 0.5) * 10
+        );
+        cloudPart.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+        cloudGroup.add(cloudPart);
+      }
+
+      cloudGroup.position.set(
+        (Math.random() - 0.5) * 200,
+        25 + Math.random() * 35,
+        -100 - Math.random() * 300
+      );
+      this.group.add(cloudGroup);
+      this.envObjects.push({
+        mesh: cloudGroup,
+        speed: 5 + Math.random() * 8,
+        rotationSpeed: new THREE.Vector3(0, 0, 0),
+      });
+    }
+
+    // Water body (river/lake below terrain)
+    const waterGeo = new THREE.PlaneGeometry(600, 1200);
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x2288aa,
+      metalness: 0.95,
+      roughness: 0.05,
+      transparent: true,
+      opacity: 0.7,
+      emissive: 0x114455,
+      emissiveIntensity: 0.2,
+    });
+    const water = new THREE.Mesh(waterGeo, waterMat);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(0, -5, -300);
+    this.groundGroup.add(water);
+
+    // Atmospheric haze layers
+    for (let i = 0; i < 6; i++) {
+      const hazeGeo = new THREE.PlaneGeometry(150, 30);
+      const hazeMat = new THREE.MeshBasicMaterial({
+        color: 0x88ccbb,
+        transparent: true,
+        opacity: 0.04 + Math.random() * 0.03,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const haze = new THREE.Mesh(hazeGeo, hazeMat);
+      haze.position.set(
+        (Math.random() - 0.5) * 100,
+        2 + Math.random() * 8,
+        -80 - Math.random() * 200
+      );
+      haze.rotation.set(Math.random() * 0.2, Math.random() * Math.PI, 0);
+      this.group.add(haze);
+      this.envObjects.push({
+        mesh: haze,
+        speed: 6 + Math.random() * 4,
+        rotationSpeed: new THREE.Vector3(0, 0, 0),
+      });
+    }
+
+    // Floating pollen/dust motes
+    const moteCount = 400;
+    const motePositions = new Float32Array(moteCount * 3);
+    const moteColors = new Float32Array(moteCount * 3);
+    for (let i = 0; i < moteCount; i++) {
+      motePositions[i * 3] = (Math.random() - 0.5) * 150;
+      motePositions[i * 3 + 1] = Math.random() * 25 + 1;
+      motePositions[i * 3 + 2] = (Math.random() - 0.5) * 400;
+      const brightness = 0.7 + Math.random() * 0.3;
+      moteColors[i * 3] = brightness;
+      moteColors[i * 3 + 1] = brightness;
+      moteColors[i * 3 + 2] = brightness * 0.7;
+    }
+    const moteGeo = new THREE.BufferGeometry();
+    moteGeo.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
+    moteGeo.setAttribute('color', new THREE.BufferAttribute(moteColors, 3));
+    const moteMat = new THREE.PointsMaterial({
+      size: 0.15,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const motes = new THREE.Points(moteGeo, moteMat);
+    this.group.add(motes);
+    this.envObjects.push({
+      mesh: motes,
+      speed: 3,
+      rotationSpeed: new THREE.Vector3(0, 0, 0),
+    });
+  }
+
   private createGroundTile(level: LevelDef, groundMat: THREE.MeshStandardMaterial): THREE.Mesh {
     const groundGeo = new THREE.PlaneGeometry(400, this.groundLength, 80, 160);
     const pos = groundGeo.getAttribute('position') as THREE.BufferAttribute;
@@ -624,6 +867,23 @@ export class World {
           height += Math.sin(x * 0.2 + z * 0.15) * 3;
           // Sharp ridges
           height += Math.abs(Math.sin(x * 0.05) * Math.cos(z * 0.08)) * 8;
+          break;
+        case 'emerald_planet':
+          // Rolling hills with mountains on edges
+          height += Math.sin(x * 0.04) * Math.cos(z * 0.03) * 6;
+          height += Math.sin(x * 0.08 + z * 0.06) * 3;
+          height += Math.cos(x * 0.02 - z * 0.025) * 4;
+          // Mountain ridges on far sides
+          const edgeDist = Math.abs(x) / 200;
+          if (edgeDist > 0.3) {
+            const mountainFactor = (edgeDist - 0.3) / 0.7;
+            height += mountainFactor * mountainFactor * 25;
+            height += Math.sin(z * 0.1 + x * 0.05) * mountainFactor * 8;
+          }
+          // Gentle valleys in center for gameplay
+          if (Math.abs(x) < 15) {
+            height *= 0.4;
+          }
           break;
       }
       pos.setY(i, height);
@@ -1168,6 +1428,268 @@ export class World {
           this.group.add(geyserGroup);
           this.envObjects.push({
             mesh: geyserGroup,
+            speed: this.scrollSpeed,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+        break;
+      }
+      case 'emerald_planet': {
+        // Trees (cone + cylinder trunks)
+        if (Math.random() < 0.35) {
+          const treeGroup = new THREE.Group();
+          const trunkMat = new THREE.MeshStandardMaterial({
+            color: 0x553322,
+            roughness: 0.9,
+            metalness: 0.0,
+          });
+          const leafMat = new THREE.MeshStandardMaterial({
+            color: Math.random() < 0.5 ? 0x228833 : 0x337744,
+            roughness: 0.7,
+            metalness: 0.0,
+            emissive: 0x112211,
+            emissiveIntensity: 0.15,
+          });
+          const trunkH = 2 + Math.random() * 3;
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.35, trunkH, 6),
+            trunkMat
+          );
+          trunk.position.y = trunkH / 2;
+          treeGroup.add(trunk);
+
+          // Foliage layers
+          const layers = 2 + Math.floor(Math.random() * 2);
+          for (let l = 0; l < layers; l++) {
+            const foliageSize = 2.5 - l * 0.6 + Math.random() * 0.5;
+            const foliage = new THREE.Mesh(
+              new THREE.ConeGeometry(foliageSize, 3 + Math.random(), 6),
+              leafMat
+            );
+            foliage.position.y = trunkH + l * 1.8 + 1;
+            treeGroup.add(foliage);
+          }
+
+          const side = Math.random() < 0.5 ? -1 : 1;
+          treeGroup.position.set(
+            side * (8 + Math.random() * 30),
+            -2,
+            z
+          );
+          this.group.add(treeGroup);
+          this.envObjects.push({
+            mesh: treeGroup,
+            speed: this.scrollSpeed,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+
+        // Rock formations with moss
+        if (Math.random() < 0.2) {
+          const rockGroup = new THREE.Group();
+          const rockMat = new THREE.MeshStandardMaterial({
+            color: 0x667766,
+            roughness: 0.9,
+            metalness: 0.1,
+            flatShading: true,
+          });
+          const mainSize = 1.5 + Math.random() * 3;
+          const rock = buildAsteroid(mainSize);
+          (rock.material as THREE.MeshStandardMaterial).color.set(0x667766);
+          (rock.material as THREE.MeshStandardMaterial).emissive = new THREE.Color(0x112211);
+          (rock.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.1;
+          rock.position.y = mainSize * 0.3;
+          rockGroup.add(rock);
+
+          // Smaller surrounding rocks
+          for (let r = 0; r < 2 + Math.floor(Math.random() * 3); r++) {
+            const smallSize = 0.5 + Math.random() * 1;
+            const small = buildAsteroid(smallSize);
+            (small.material as THREE.MeshStandardMaterial).color.set(0x556655);
+            small.position.set(
+              (Math.random() - 0.5) * mainSize * 2,
+              smallSize * 0.3,
+              (Math.random() - 0.5) * mainSize * 2
+            );
+            rockGroup.add(small);
+          }
+
+          const side = Math.random() < 0.5 ? -1 : 1;
+          rockGroup.position.set(side * (10 + Math.random() * 25), -2, z);
+          this.group.add(rockGroup);
+          this.envObjects.push({
+            mesh: rockGroup,
+            speed: this.scrollSpeed,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+
+        // Alien flora - glowing flowers/mushrooms
+        if (Math.random() < 0.15) {
+          const floraGroup = new THREE.Group();
+          const floraColors = [0xff66aa, 0xaa44ff, 0x44ffaa, 0xffaa22];
+          const floraColor = floraColors[Math.floor(Math.random() * floraColors.length)];
+          const floraMat = new THREE.MeshStandardMaterial({
+            color: floraColor,
+            emissive: floraColor,
+            emissiveIntensity: 0.6,
+            transparent: true,
+            opacity: 0.8,
+          });
+
+          // Mushroom cap or flower head
+          if (Math.random() < 0.5) {
+            // Mushroom
+            const stemH = 1 + Math.random() * 2;
+            const stem = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.15, 0.2, stemH, 6),
+              new THREE.MeshStandardMaterial({ color: 0xccccaa, roughness: 0.8 })
+            );
+            stem.position.y = stemH / 2;
+            floraGroup.add(stem);
+
+            const capSize = 0.8 + Math.random() * 1.2;
+            const cap = new THREE.Mesh(
+              new THREE.SphereGeometry(capSize, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+              floraMat
+            );
+            cap.position.y = stemH;
+            floraGroup.add(cap);
+
+            const light = new THREE.PointLight(floraColor, 1, 8);
+            light.position.y = stemH + 0.5;
+            floraGroup.add(light);
+          } else {
+            // Flower cluster
+            for (let f = 0; f < 3 + Math.floor(Math.random() * 4); f++) {
+              const petalSize = 0.3 + Math.random() * 0.5;
+              const petal = new THREE.Mesh(
+                new THREE.SphereGeometry(petalSize, 6, 6),
+                floraMat
+              );
+              petal.position.set(
+                (Math.random() - 0.5) * 2,
+                0.5 + Math.random() * 1.5,
+                (Math.random() - 0.5) * 2
+              );
+              floraGroup.add(petal);
+            }
+            const light = new THREE.PointLight(floraColor, 0.8, 6);
+            light.position.y = 1;
+            floraGroup.add(light);
+          }
+
+          floraGroup.position.set(
+            (Math.random() - 0.5) * 30,
+            -2,
+            z
+          );
+          this.group.add(floraGroup);
+          this.envObjects.push({
+            mesh: floraGroup,
+            speed: this.scrollSpeed,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+
+        // Floating cloud wisps passing by
+        if (Math.random() < 0.08) {
+          const cloudMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.1 + Math.random() * 0.1,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          const cloud = new THREE.Mesh(
+            new THREE.PlaneGeometry(30 + Math.random() * 30, 8 + Math.random() * 6),
+            cloudMat
+          );
+          cloud.position.set(
+            (Math.random() - 0.5) * 60,
+            15 + Math.random() * 20,
+            z
+          );
+          cloud.rotation.x = -Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+          this.group.add(cloud);
+          this.envObjects.push({
+            mesh: cloud,
+            speed: this.scrollSpeed * 0.6,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+
+        // Distant mountain silhouettes (large dark shapes)
+        if (Math.random() < 0.05) {
+          const mountainMat = new THREE.MeshStandardMaterial({
+            color: 0x334433,
+            roughness: 0.9,
+            metalness: 0.0,
+            emissive: 0x112211,
+            emissiveIntensity: 0.1,
+          });
+          const mtnH = 30 + Math.random() * 40;
+          const mountain = new THREE.Mesh(
+            new THREE.ConeGeometry(15 + Math.random() * 20, mtnH, 6),
+            mountainMat
+          );
+          const side = Math.random() < 0.5 ? -1 : 1;
+          mountain.position.set(
+            side * (60 + Math.random() * 40),
+            mtnH / 2 - 5,
+            z - Math.random() * 50
+          );
+          this.group.add(mountain);
+          this.envObjects.push({
+            mesh: mountain,
+            speed: this.scrollSpeed * 0.5,
+            rotationSpeed: new THREE.Vector3(0, 0, 0),
+          });
+        }
+
+        // Waterfalls (vertical light blue streaks)
+        if (Math.random() < 0.03) {
+          const fallGroup = new THREE.Group();
+          const fallMat = new THREE.MeshStandardMaterial({
+            color: 0x66ccee,
+            emissive: 0x3399bb,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.5,
+          });
+          const fallH = 10 + Math.random() * 15;
+          const fall = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.3, 0.8, fallH, 8),
+            fallMat
+          );
+          fall.position.y = fallH / 2;
+          fallGroup.add(fall);
+
+          // Mist at base
+          const mistMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.15,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          });
+          const mist = new THREE.Mesh(
+            new THREE.PlaneGeometry(6, 4),
+            mistMat
+          );
+          mist.position.y = 1;
+          mist.rotation.x = -0.3;
+          fallGroup.add(mist);
+
+          const fLight = new THREE.PointLight(0x66ccee, 1, 12);
+          fLight.position.y = fallH / 2;
+          fallGroup.add(fLight);
+
+          const side = Math.random() < 0.5 ? -1 : 1;
+          fallGroup.position.set(side * (15 + Math.random() * 20), -2, z);
+          this.group.add(fallGroup);
+          this.envObjects.push({
+            mesh: fallGroup,
             speed: this.scrollSpeed,
             rotationSpeed: new THREE.Vector3(0, 0, 0),
           });

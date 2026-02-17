@@ -22,6 +22,16 @@ enum GameState {
 const CAMERA_BASE = new THREE.Vector3(0, 6, 12);
 const CAMERA_LOOK_OFFSET = new THREE.Vector3(0, 1, -20);
 
+// Dynamic camera settings
+const CAM_FOLLOW_X = 0.6;        // How much camera follows player X
+const CAM_FOLLOW_Y = 0.35;       // How much camera follows player Y
+const CAM_BANK_FACTOR = 0.015;   // Camera roll when player moves sideways
+const CAM_SWOOP_SPEED = 0.8;     // Speed of cinematic intro swoop
+const CAM_BOSS_FOV = 70;         // Wider FOV during boss fights
+const CAM_NORMAL_FOV = 60;       // Normal FOV
+const CAM_SPEED_Z_OFFSET = 1.5;  // Camera pulls back slightly when player moves fast
+const CAM_COMBAT_SHAKE_FACTOR = 0.15; // Subtle camera sway during combat
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene: THREE.Scene;
@@ -47,6 +57,14 @@ export class Game {
   // Lighting
   private ambientLight: THREE.AmbientLight;
   private sunLight: THREE.DirectionalLight;
+
+  // Dynamic camera state
+  private camSwoopProgress = 0;  // 0 = swooping, >= 1 = done
+  private camTargetFov = CAM_NORMAL_FOV;
+  private camCurrentFov = CAM_NORMAL_FOV;
+  private camCombatTimer = 0;
+  private camPrevPlayerX = 0;
+  private camVelocityX = 0;  // Smoothed player X velocity for camera look-ahead
 
   constructor() {
     const container = document.getElementById('game-container')!;
@@ -117,6 +135,11 @@ export class Game {
     document.getElementById('start-btn')!.addEventListener('click', () => this.startGame());
     document.getElementById('restart-btn')!.addEventListener('click', () => this.startGame());
     document.getElementById('victory-restart-btn')!.addEventListener('click', () => this.startGame());
+    document.getElementById('level-select-btn')!.addEventListener('click', () => this.showLevelSelect());
+    document.getElementById('level-select-back')!.addEventListener('click', () => this.hideLevelSelect());
+
+    // Build level select cards
+    this.buildLevelSelectCards();
 
     // Create pause overlay
     this.createPauseOverlay();
@@ -160,10 +183,20 @@ export class Game {
     this.world.setupLevel(this.scene);
     this.updateLighting();
 
+    // Reset dynamic camera
+    this.camSwoopProgress = 0;
+    this.camCurrentFov = CAM_NORMAL_FOV;
+    this.camera.fov = CAM_NORMAL_FOV;
+    this.camera.updateProjectionMatrix();
+    this.camPrevPlayerX = 0;
+    this.camVelocityX = 0;
+    this.camCombatTimer = 0;
+
     // UI
     document.getElementById('menu-screen')!.style.display = 'none';
     document.getElementById('gameover-screen')!.style.display = 'none';
     document.getElementById('victory-screen')!.style.display = 'none';
+    document.getElementById('level-select-screen')!.style.display = 'none';
     this.hud.show();
     this.hud.showLevelTitle(this.world.levelDef.name, this.world.levelDef.subtitle);
 
@@ -189,6 +222,11 @@ export class Game {
       case 'volcanic_core':
         this.ambientLight.color.set(0x442200);
         this.sunLight.color.set(0xff8844);
+        break;
+      case 'emerald_planet':
+        this.ambientLight.color.set(0x446644);
+        this.sunLight.color.set(0xffeedd);
+        this.sunLight.position.set(20, 30, -10);
         break;
     }
   }
@@ -332,6 +370,7 @@ export class Game {
         setTimeout(() => {
           this.world.setupLevel(this.scene);
           this.updateLighting();
+          this.camSwoopProgress = 0; // Trigger camera swoop for new level
           this.hud.showLevelTitle(this.world.levelDef.name, this.world.levelDef.subtitle);
         }, 1500);
       }
@@ -519,20 +558,82 @@ export class Game {
   }
 
   private updateCamera(dt: number): void {
-    const targetPos = new THREE.Vector3(
-      this.player.position.x * 0.5,
-      CAMERA_BASE.y + this.player.position.y * 0.25,
-      CAMERA_BASE.z
-    );
-    this.camera.position.lerp(targetPos, 3 * dt);
+    // Track player velocity for look-ahead
+    const playerVelX = (this.player.position.x - this.camPrevPlayerX) / Math.max(dt, 0.001);
+    this.camPrevPlayerX = this.player.position.x;
+    this.camVelocityX += (playerVelX - this.camVelocityX) * 3 * dt;
 
+    // Player movement intensity (0-1)
+    const moveIntensity = Math.min(1, Math.abs(this.camVelocityX) / 20);
+
+    // Cinematic level intro swoop
+    if (this.camSwoopProgress < 1) {
+      this.camSwoopProgress += CAM_SWOOP_SPEED * dt;
+      const t = Math.min(1, this.camSwoopProgress);
+      const ease = t * t * (3 - 2 * t); // smoothstep
+
+      // Camera starts high and behind, swoops down to game position
+      const swoopStartY = CAMERA_BASE.y + 15;
+      const swoopStartZ = CAMERA_BASE.z + 20;
+      const swoopY = swoopStartY + (CAMERA_BASE.y - swoopStartY) * ease;
+      const swoopZ = swoopStartZ + (CAMERA_BASE.z - swoopStartZ) * ease;
+
+      this.camera.position.set(
+        Math.sin(t * Math.PI * 0.5) * 5 * (1 - ease), // slight lateral sweep
+        swoopY,
+        swoopZ
+      );
+
+      const lookTarget = new THREE.Vector3(
+        0,
+        this.player.position.y * 0.3 + CAMERA_LOOK_OFFSET.y,
+        CAMERA_LOOK_OFFSET.z
+      );
+      this.camera.lookAt(lookTarget);
+      return;
+    }
+
+    // Boss fight: widen FOV and pull camera back slightly
+    const hasBoss = this.enemies.activeBoss !== null;
+    this.camTargetFov = hasBoss ? CAM_BOSS_FOV : CAM_NORMAL_FOV;
+    this.camCurrentFov += (this.camTargetFov - this.camCurrentFov) * 2 * dt;
+    if (Math.abs(this.camCurrentFov - this.camera.fov) > 0.1) {
+      this.camera.fov = this.camCurrentFov;
+      this.camera.updateProjectionMatrix();
+    }
+
+    // Combat sway - subtle camera movement during active combat
+    const activeEnemyCount = this.enemies.getActive().length;
+    this.camCombatTimer += dt;
+    const combatSway = activeEnemyCount > 0
+      ? Math.sin(this.camCombatTimer * 1.5) * CAM_COMBAT_SHAKE_FACTOR * Math.min(1, activeEnemyCount / 5)
+      : 0;
+
+    // Speed-based Z offset (camera pulls back when moving fast)
+    const speedZOffset = moveIntensity * CAM_SPEED_Z_OFFSET;
+
+    // Look-ahead: camera leads slightly in the direction player is moving
+    const lookAheadX = this.camVelocityX * 0.08;
+
+    // Target camera position
+    const targetPos = new THREE.Vector3(
+      this.player.position.x * CAM_FOLLOW_X + lookAheadX,
+      CAMERA_BASE.y + this.player.position.y * CAM_FOLLOW_Y + combatSway,
+      CAMERA_BASE.z + speedZOffset + (hasBoss ? 4 : 0)
+    );
+    this.camera.position.lerp(targetPos, 3.5 * dt);
+
+    // Look target with look-ahead
     const lookAt = new THREE.Vector3(
-      this.player.position.x * 0.5,
-      this.player.position.y * 0.5 + CAMERA_LOOK_OFFSET.y,
+      this.player.position.x * 0.4 + lookAheadX * 1.5,
+      this.player.position.y * 0.4 + CAMERA_LOOK_OFFSET.y,
       CAMERA_LOOK_OFFSET.z
     );
     this.camera.lookAt(lookAt);
-    this.camera.rotation.z = -this.player.position.x * 0.005;
+
+    // Camera bank/roll - tilts with player movement
+    const targetBank = -this.player.position.x * CAM_BANK_FACTOR - this.camVelocityX * 0.003;
+    this.camera.rotation.z = this.camera.rotation.z + (targetBank - this.camera.rotation.z) * 4 * dt;
   }
 
   private updatePaused(): void {
@@ -588,6 +689,83 @@ export class Game {
     el.style.display = 'flex';
     document.getElementById('victory-score')!.textContent =
       `SCORE: ${this.player.score.toString().padStart(8, '0')}`;
+  }
+
+  private buildLevelSelectCards(): void {
+    const grid = document.getElementById('level-grid')!;
+    const levelData = [
+      { name: 'PLANET AZURIS', sub: 'The Crystal Depths', env: 'crystal_depths' },
+      { name: 'NOVA PRIME', sub: 'Neon Megacity', env: 'neon_city' },
+      { name: 'PLANET INFERNUS', sub: 'The Molten Core', env: 'volcanic_core' },
+      { name: 'PLANET VERDANA', sub: 'The Emerald Expanse', env: 'emerald_planet' },
+    ];
+
+    for (let i = 0; i < levelData.length; i++) {
+      const data = levelData[i];
+      const card = document.createElement('div');
+      card.className = 'level-card';
+      card.setAttribute('data-env', data.env);
+      card.innerHTML = `
+        <div class="level-num">MISSION ${i + 1}</div>
+        <div class="level-name">${data.name}</div>
+        <div class="level-sub">${data.sub}</div>
+        <div class="level-env-strip"></div>
+      `;
+      card.addEventListener('click', () => this.startGameAtLevel(i));
+      grid.appendChild(card);
+    }
+  }
+
+  private showLevelSelect(): void {
+    document.getElementById('menu-screen')!.style.display = 'none';
+    document.getElementById('level-select-screen')!.style.display = 'flex';
+  }
+
+  private hideLevelSelect(): void {
+    document.getElementById('level-select-screen')!.style.display = 'none';
+    document.getElementById('menu-screen')!.style.display = 'flex';
+  }
+
+  private startGameAtLevel(levelIndex: number): void {
+    // Init audio on user interaction
+    this.audio.init();
+
+    // Reset everything
+    this.player.reset();
+    this.enemies.reset();
+    this.projectiles.reset();
+    this.particles.reset();
+    this.screenShake.reset();
+    this.world.reset();
+    this.hud.reset();
+    this.bossWasActive = false;
+
+    // Skip to chosen level
+    for (let i = 0; i < levelIndex; i++) this.world.nextLevel();
+
+    // Setup level
+    this.world.setupLevel(this.scene);
+    this.updateLighting();
+
+    // Reset dynamic camera
+    this.camSwoopProgress = 0;
+    this.camCurrentFov = CAM_NORMAL_FOV;
+    this.camera.fov = CAM_NORMAL_FOV;
+    this.camera.updateProjectionMatrix();
+    this.camPrevPlayerX = 0;
+    this.camVelocityX = 0;
+    this.camCombatTimer = 0;
+
+    // UI
+    document.getElementById('menu-screen')!.style.display = 'none';
+    document.getElementById('gameover-screen')!.style.display = 'none';
+    document.getElementById('victory-screen')!.style.display = 'none';
+    document.getElementById('level-select-screen')!.style.display = 'none';
+    this.hud.show();
+    this.hud.showLevelTitle(this.world.levelDef.name, this.world.levelDef.subtitle);
+
+    this.state = GameState.PLAYING;
+    this.audio.startMusic();
   }
 
   private onResize(): void {

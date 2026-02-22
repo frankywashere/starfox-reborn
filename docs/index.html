@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StarFox Reborn</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; }
+    #game-container { width: 100vw; height: 100vh; position: relative; }
+
+    /* HUD */
+    #hud {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; font-family: 'Courier New', monospace;
+      color: #0f0; z-index: 10;
+    }
+    #hud-top {
+      display: flex; justify-content: space-between; padding: 20px 30px;
+    }
+    #score-display { font-size: 24px; text-shadow: 0 0 10px #0f0; }
+    #lives-display { font-size: 20px; text-shadow: 0 0 10px #0f0; }
+    #hud-bottom {
+      position: absolute; bottom: 20px; left: 30px; right: 30px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+    .bar-container {
+      width: 200px; margin-bottom: 8px;
+    }
+    .bar-label { font-size: 12px; margin-bottom: 2px; }
+    .bar-outer {
+      width: 100%; height: 12px; background: rgba(0,0,0,0.6);
+      border: 1px solid #0f0; border-radius: 2px;
+    }
+    .bar-inner { height: 100%; border-radius: 1px; transition: width 0.2s; }
+    #health-bar .bar-inner { background: linear-gradient(90deg, #f00, #0f0); }
+    #shield-bar .bar-inner { background: linear-gradient(90deg, #06f, #0ff); }
+    #boss-health-container {
+      position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+      width: 400px; display: none;
+    }
+    #boss-health-bar .bar-outer { height: 16px; border-color: #f00; }
+    #boss-health-bar .bar-inner { background: linear-gradient(90deg, #800, #f00); }
+    #boss-name { text-align: center; color: #f44; font-size: 16px; margin-bottom: 4px; }
+    #bomb-display { font-size: 18px; text-shadow: 0 0 10px #ff0; color: #ff0; }
+    #level-display {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 48px; text-shadow: 0 0 30px #0f0; display: none;
+      text-align: center;
+    }
+    #level-subtitle { font-size: 20px; margin-top: 10px; color: #0a0; }
+    #crosshair {
+      position: absolute; top: 50%; left: 50%;
+      width: 40px; height: 40px; transform: translate(-50%, -50%);
+      border: 2px solid rgba(0,255,0,0.6); border-radius: 50%;
+      display: none;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(0,255,0,0.6);
+    }
+    #crosshair::before {
+      width: 2px; height: 12px; top: -8px; left: 50%; transform: translateX(-50%);
+    }
+    #crosshair::after {
+      width: 12px; height: 2px; top: 50%; left: -8px; transform: translateY(-50%);
+    }
+
+    /* Menu */
+    #menu-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 20;
+      background: radial-gradient(ellipse at center, #001 0%, #000 100%);
+    }
+    #menu-screen h1 {
+      font-family: 'Courier New', monospace; font-size: 64px;
+      color: #0f0; text-shadow: 0 0 40px #0f0, 0 0 80px #080;
+      margin-bottom: 20px; letter-spacing: 8px;
+    }
+    #menu-screen .subtitle {
+      font-family: 'Courier New', monospace; font-size: 18px;
+      color: #0a0; margin-bottom: 60px;
+    }
+    #menu-screen .start-btn {
+      font-family: 'Courier New', monospace; font-size: 24px;
+      color: #0f0; background: none; border: 2px solid #0f0;
+      padding: 15px 40px; cursor: pointer; pointer-events: all;
+      text-shadow: 0 0 10px #0f0; transition: all 0.3s;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    #menu-screen .start-btn:hover {
+      background: rgba(0,255,0,0.1); box-shadow: 0 0 30px #0f0;
+    }
+    #menu-screen .controls-info {
+      font-family: 'Courier New', monospace; font-size: 13px;
+      color: #060; margin-top: 40px; text-align: center; line-height: 1.8;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.5; }
+    }
+
+    /* Level Select Screen */
+    #level-select-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 20;
+      background: radial-gradient(ellipse at center, #001 0%, #000 100%);
+    }
+    #level-select-screen h1 {
+      font-family: 'Courier New', monospace; font-size: 48px;
+      color: #0f0; text-shadow: 0 0 30px #0f0, 0 0 60px #080;
+      margin-bottom: 40px; letter-spacing: 6px;
+    }
+    .level-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px; max-width: 700px; width: 90%;
+    }
+    .level-card {
+      font-family: 'Courier New', monospace;
+      border: 2px solid #0a0; background: rgba(0,30,0,0.4);
+      padding: 20px; cursor: pointer; pointer-events: all;
+      transition: all 0.3s; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .level-card:hover {
+      border-color: #0f0; background: rgba(0,60,0,0.5);
+      box-shadow: 0 0 30px rgba(0,255,0,0.2);
+      transform: scale(1.03);
+    }
+    .level-card .level-num {
+      font-size: 14px; color: #060; margin-bottom: 6px;
+    }
+    .level-card .level-name {
+      font-size: 22px; color: #0f0; text-shadow: 0 0 10px #0f0;
+      margin-bottom: 4px;
+    }
+    .level-card .level-sub {
+      font-size: 13px; color: #0a0;
+    }
+    .level-card .level-env-strip {
+      position: absolute; bottom: 0; left: 0; width: 100%;
+      height: 4px;
+    }
+    .level-card[data-env="crystal_depths"] .level-env-strip { background: linear-gradient(90deg, #0066ff, #8844ff); }
+    .level-card[data-env="neon_city"] .level-env-strip { background: linear-gradient(90deg, #ff00ff, #00ffff); }
+    .level-card[data-env="volcanic_core"] .level-env-strip { background: linear-gradient(90deg, #ff4400, #ff8800); }
+    .level-card[data-env="emerald_planet"] .level-env-strip { background: linear-gradient(90deg, #22aa44, #44ddff); }
+    #level-select-back {
+      font-family: 'Courier New', monospace; font-size: 16px;
+      color: #080; background: none; border: 1px solid #060;
+      padding: 10px 25px; cursor: pointer; pointer-events: all;
+      margin-top: 30px; transition: all 0.3s;
+    }
+    #level-select-back:hover {
+      color: #0f0; border-color: #0f0;
+    }
+
+    /* Game Over */
+    #gameover-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 20;
+      background: rgba(0,0,0,0.85);
+    }
+    #gameover-screen h1 {
+      font-family: 'Courier New', monospace; font-size: 56px;
+      color: #f00; text-shadow: 0 0 40px #f00;
+      margin-bottom: 20px;
+    }
+    #gameover-screen .final-score {
+      font-family: 'Courier New', monospace; font-size: 28px;
+      color: #ff0; margin-bottom: 40px;
+    }
+    #gameover-screen .restart-btn {
+      font-family: 'Courier New', monospace; font-size: 20px;
+      color: #0f0; background: none; border: 2px solid #0f0;
+      padding: 12px 30px; cursor: pointer; pointer-events: all;
+    }
+
+    /* Victory */
+    #victory-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 20;
+      background: rgba(0,0,0,0.85);
+    }
+    #victory-screen h1 {
+      font-family: 'Courier New', monospace; font-size: 56px;
+      color: #0f0; text-shadow: 0 0 40px #0f0;
+      margin-bottom: 10px;
+    }
+    #victory-screen .victory-sub {
+      font-family: 'Courier New', monospace; font-size: 20px;
+      color: #0a0; margin-bottom: 20px;
+    }
+    #victory-screen .final-score {
+      font-family: 'Courier New', monospace; font-size: 28px;
+      color: #ff0; margin-bottom: 40px;
+    }
+    #victory-screen .restart-btn {
+      font-family: 'Courier New', monospace; font-size: 20px;
+      color: #0f0; background: none; border: 2px solid #0f0;
+      padding: 12px 30px; cursor: pointer; pointer-events: all;
+    }
+  </style>
+  <script type="module" crossorigin src="/starfox-reborn/assets/index-CGEROzJZ.js"></script>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Menu Screen -->
+    <div id="menu-screen">
+      <h1>STARFOX REBORN</h1>
+      <div class="subtitle">Beyond the Stars</div>
+      <button class="start-btn" id="start-btn">START MISSION</button>
+      <button class="start-btn" id="level-select-btn" style="font-size:18px; padding:10px 30px; margin-top:15px; animation:none; opacity:0.8;">SELECT LEVEL</button>
+      <div class="controls-info">
+        WASD / Arrow Keys - Move<br>
+        SPACE / Z / Mouse - Fire Lasers<br>
+        X - Smart Bomb<br>
+        SHIFT / C - Barrel Roll (Dodge!)<br>
+        P / ESC - Pause<br><br>
+        Destroy enemies to earn power-ups!
+      </div>
+    </div>
+
+    <!-- Level Select Screen -->
+    <div id="level-select-screen">
+      <h1>SELECT MISSION</h1>
+      <div class="level-grid" id="level-grid"></div>
+      <button id="level-select-back">BACK</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none">
+      <div id="hud-top">
+        <div id="score-display">SCORE: 0</div>
+        <div id="lives-display"></div>
+      </div>
+      <div id="boss-health-container">
+        <div id="boss-name">BOSS</div>
+        <div id="boss-health-bar" class="bar-container">
+          <div class="bar-outer"><div class="bar-inner" style="width:100%"></div></div>
+        </div>
+      </div>
+      <div id="level-display">
+        <div id="level-name"></div>
+        <div id="level-subtitle"></div>
+      </div>
+      <div id="crosshair"></div>
+      <div id="hud-bottom">
+        <div>
+          <div id="health-bar" class="bar-container">
+            <div class="bar-label">HULL</div>
+            <div class="bar-outer"><div class="bar-inner" style="width:100%"></div></div>
+          </div>
+          <div id="shield-bar" class="bar-container">
+            <div class="bar-label">SHIELD</div>
+            <div class="bar-outer"><div class="bar-inner" style="width:100%"></div></div>
+          </div>
+        </div>
+        <div>
+          <div id="laser-display" style="font-size:14px; color:#0f0; text-shadow:0 0 8px #0f0; margin-bottom:8px;"></div>
+          <div id="bomb-display"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameover-screen">
+      <h1>MISSION FAILED</h1>
+      <div class="final-score" id="gameover-score">SCORE: 0</div>
+      <button class="restart-btn" id="restart-btn">TRY AGAIN</button>
+    </div>
+
+    <!-- Victory -->
+    <div id="victory-screen">
+      <h1>MISSION COMPLETE</h1>
+      <div class="victory-sub">All sectors liberated. The galaxy is free.</div>
+      <div class="final-score" id="victory-score">SCORE: 0</div>
+      <button class="restart-btn" id="victory-restart-btn">PLAY AGAIN</button>
+    </div>
+  </div>
+</body>
+</html>

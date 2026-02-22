@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '/starfox-reborn/',
   server: {
     port: 3001,
   },
